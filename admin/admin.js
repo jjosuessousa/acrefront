@@ -4,10 +4,10 @@ document.addEventListener('DOMContentLoaded', function () {
   const form = document.getElementById('form-filme');
   const lista = document.getElementById('lista-filmes');
   const mensagem = document.getElementById('mensagem');
-  const categoriaSelect = document.getElementById('categoria');
+  const categoriaCheckboxContainer = document.getElementById('categorias-checkbox');
   const inputIdOuTitulo = document.getElementById('filmeId');
 
-  // Montar FormData
+  // Gera o objeto FormData com os dados do formulário
   function montarFormData() {
     const formData = new FormData();
     formData.append('titulo', document.getElementById('titulo').value);
@@ -16,7 +16,10 @@ document.addEventListener('DOMContentLoaded', function () {
     formData.append('lancamento', document.getElementById('lancamento').value);
     formData.append('duracao', document.getElementById('duracao').value);
 
-    const categoriasSelecionadas = Array.from(categoriaSelect.selectedOptions).map(option => option.value);
+    // Coleta categorias marcadas
+    const categoriasSelecionadas = Array.from(document.querySelectorAll('input[name="categorias[]"]:checked'))
+      .map(cb => cb.value);
+
     formData.append('categorias', JSON.stringify(categoriasSelecionadas));
 
     const capa = document.getElementById('capa').files[0];
@@ -24,55 +27,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
     return formData;
   }
-  function carregarCategorias() {
-  fetch('http://localhost/cine_tech_ac/public/categorias')
-    .then(response => response.json())
-    .then(categorias => {
-      const container = document.getElementById('categorias-checkbox');
-      container.innerHTML = ''; // Limpa antes de adicionar
 
-      categorias.forEach(cat => {
-        const checkbox = document.createElement('div');
-        checkbox.className = 'form-check';
-
-        checkbox.innerHTML = `
-          <input class="form-check-input" type="checkbox" name="categorias[]" value="${cat.id}" id="cat-${cat.id}">
-          <label class="form-check-label" for="cat-${cat.id}">${cat.nome}</label>
-        `;
-
-        container.appendChild(checkbox);
-      });
-    })
-    .catch(error => console.error('Erro ao carregar categorias:', error));
-}
-
-// Chama ao carregar a página
-window.addEventListener('DOMContentLoaded', carregarCategorias);
-
-
-  // Mostrar mensagens
+  // Exibe mensagens com alertas do Bootstrap
   function mostrarMensagem(texto, tipo) {
     mensagem.innerHTML = `<div class="alert alert-${tipo} fade show">${texto}</div>`;
     setTimeout(() => { mensagem.innerHTML = ''; }, 4000);
   }
 
-  // Carregar categorias
-  function carregarCategorias() {
-    fetch(`${API_BASE}/categorias`)
-      .then(res => res.json())
-      .then(data => {
-        categoriaSelect.innerHTML = '';
-        data.forEach(categoria => {
-          const option = document.createElement('option');
-          option.value = categoria.id; // Corrigido: envia o ID
-          option.textContent = categoria.nome;
-          categoriaSelect.appendChild(option);
-        });
-      });
-  }
-  
+  // Cria os checkboxes fixos com as 5 categorias
+  function carregarCategoriasFixas() {
+    const categorias = ["Ação", "Terror", "Drama", "Ficção", "Romance"];
+    categoriaCheckboxContainer.innerHTML = '';
 
-  // Listar filmes
+    categorias.forEach(cat => {
+      const checkbox = document.createElement('div');
+      checkbox.className = 'form-check';
+      checkbox.innerHTML = `
+        <input class="form-check-input" type="checkbox" name="categorias[]" value="${cat}" id="cat-${cat}">
+        <label class="form-check-label" for="cat-${cat}">${cat}</label>
+      `;
+      categoriaCheckboxContainer.appendChild(checkbox);
+    });
+  }
+
+  // Lista todos os filmes cadastrados
   window.listarFilmes = function () {
     lista.innerHTML = '<li class="list-group-item">Carregando filmes...</li>';
 
@@ -104,7 +82,7 @@ window.addEventListener('DOMContentLoaded', carregarCategorias);
       });
   };
 
-  // Buscar filme para edição
+  // Busca um filme pelo ID ou título
   window.buscarFilmeParaEditar = function () {
     const entrada = inputIdOuTitulo.value.trim();
     if (!entrada) return alert('Informe o ID ou o Título do filme');
@@ -117,7 +95,6 @@ window.addEventListener('DOMContentLoaded', carregarCategorias);
       .then(res => res.json())
       .then(resposta => {
         let filme;
-
         if (Array.isArray(resposta)) {
           if (resposta.length === 0) {
             mostrarMensagem('Nenhum filme encontrado.', 'warning');
@@ -136,22 +113,20 @@ window.addEventListener('DOMContentLoaded', carregarCategorias);
 
         const lancamento = filme.lancamento ? new Date(filme.lancamento) : null;
         if (lancamento instanceof Date && !isNaN(lancamento)) {
-          const yyyyMMdd = lancamento.toISOString().split('T')[0];
-          document.getElementById('lancamento').value = yyyyMMdd;
-        } else {
-          document.getElementById('lancamento').value = '';
+          document.getElementById('lancamento').value = lancamento.toISOString().split('T')[0];
         }
 
+        // Converte categorias
         let categoriasSelecionadas = [];
-
         if (Array.isArray(filme.categorias)) {
-          categoriasSelecionadas = filme.categorias.map(cat => typeof cat === 'string' ? cat : cat.nome);
+          categoriasSelecionadas = filme.categorias.map(cat => cat.nome || cat);
         } else if (typeof filme.categoria === 'string') {
           categoriasSelecionadas = filme.categoria.split(',').map(cat => cat.trim());
         }
 
-        Array.from(categoriaSelect.options).forEach(option => {
-          option.selected = categoriasSelecionadas.includes(option.value);
+        // Marca os checkboxes
+        document.querySelectorAll('input[name="categorias[]"]').forEach(cb => {
+          cb.checked = categoriasSelecionadas.includes(cb.value);
         });
 
         mostrarMensagem('Filme carregado para edição.', 'info');
@@ -162,7 +137,7 @@ window.addEventListener('DOMContentLoaded', carregarCategorias);
       });
   };
 
-  // Atualizar filme
+  // Atualiza os dados do filme
   window.atualizarFilme = function () {
     const id = inputIdOuTitulo.value;
     if (!id) return alert('Informe o ID do filme para atualizar.');
@@ -174,7 +149,7 @@ window.addEventListener('DOMContentLoaded', carregarCategorias);
       body: formData
     })
       .then(res => res.json())
-      .then(data => {
+      .then(() => {
         mostrarMensagem('Filme atualizado com sucesso!', 'success');
         form.reset();
         listarFilmes();
@@ -185,7 +160,7 @@ window.addEventListener('DOMContentLoaded', carregarCategorias);
       });
   };
 
-  // Deletar filme
+  // Exclui um filme
   window.deletarFilme = function () {
     const id = inputIdOuTitulo.value;
     if (!id) return alert('Informe o ID para deletar.');
@@ -196,7 +171,7 @@ window.addEventListener('DOMContentLoaded', carregarCategorias);
       method: 'DELETE'
     })
       .then(res => res.json())
-      .then(data => {
+      .then(() => {
         mostrarMensagem('Filme deletado com sucesso!', 'success');
         form.reset();
         listarFilmes();
@@ -207,7 +182,7 @@ window.addEventListener('DOMContentLoaded', carregarCategorias);
       });
   };
 
-  // Cadastrar filme
+  // Envia o formulário para cadastrar um novo filme
   form.addEventListener('submit', function (e) {
     e.preventDefault();
 
@@ -220,19 +195,19 @@ window.addEventListener('DOMContentLoaded', carregarCategorias);
       method: 'POST',
       body: formData
     })
-      .then(response => response.json())
-      .then(data => {
+      .then(res => res.json())
+      .then(() => {
         mostrarMensagem('Filme cadastrado com sucesso!', 'success');
         form.reset();
         listarFilmes();
       })
-      .catch(error => {
-        console.error(error);
-        mostrarMensagem('Erro ao cadastrar filme', 'danger');
+      .catch(err => {
+        console.error(err);
+        mostrarMensagem('Erro ao cadastrar filme.', 'danger');
       });
   });
 
-  // ENTER no campo de ID ou título
+  // Permite buscar apertando Enter no input do ID/título
   inputIdOuTitulo.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -240,7 +215,6 @@ window.addEventListener('DOMContentLoaded', carregarCategorias);
     }
   });
 
-  // Inicializar
-  carregarCategorias();
+  carregarCategoriasFixas();
   listarFilmes();
 });

@@ -18,46 +18,44 @@
       </div>
       <div class="card-body">
         <form id="form-filme" enctype="multipart/form-data">
-          <!-- Campo oculto para armazenar ID ao editar -->
-          <input type="hidden" id="idFilmeEditar">
+          <input type="hidden" id="idFilmeEditar" name="idFilmeEditar">
 
           <div class="mb-3">
-            <label class="form-label">Título:</label>
-            <input type="text" class="form-control" id="titulo" required>
+            <label for="titulo" class="form-label">Título:</label>
+            <input type="text" class="form-control" id="titulo" name="titulo" required>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Sinopse:</label>
-            <textarea class="form-control" id="sinopse" required></textarea>
+            <label for="sinopse" class="form-label">Sinopse:</label>
+            <textarea class="form-control" id="sinopse" name="sinopse" required></textarea>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Trailer (URL):</label>
-            <input type="text" class="form-control" id="trailer" required>
+            <label for="trailer" class="form-label">Trailer (URL):</label>
+            <input type="url" class="form-control" id="trailer" name="trailer" required>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Categorias:</label>
+            <label for="categoria" class="form-label">Categorias:</label>
             <select id="categoria" name="categorias[]" multiple class="form-select">
+              <!-- Será preenchido dinamicamente -->
             </select>
-            
-
             <small class="text-muted">Ctrl (Windows) ou Cmd (Mac) para múltiplas seleções.</small>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Imagem da Capa:</label>
-            <input type="file" class="form-control" id="capa">
+            <label for="capa" class="form-label">Imagem da Capa:</label>
+            <input type="file" class="form-control" id="capa" name="capa" accept="image/*">
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Lançamento:</label>
-            <input type="date" class="form-control" id="lancamento" required>
+            <label for="lancamento" class="form-label">Lançamento:</label>
+            <input type="date" class="form-control" id="lancamento" name="lancamento" required>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Duração (min):</label>
-            <input type="number" class="form-control" id="duracao" required>
+            <label for="duracao" class="form-label">Duração (min):</label>
+            <input type="number" class="form-control" id="duracao" name="duracao" required min="1">
           </div>
 
           <button type="submit" class="btn btn-success">Salvar</button>
@@ -65,18 +63,17 @@
       </div>
     </div>
 
-    <!-- Seção de Edição e Exclusão -->
+    <!-- Edição / Exclusão -->
     <div class="card mb-5 shadow-sm">
       <div class="card-header bg-primary text-white">
         <h4 class="mb-0">Editar ou Deletar Filme</h4>
       </div>
       <div class="card-body">
         <div class="mb-3">
-          <label class="form-label">ID ou Título do Filme:</label>
+          <label for="filmeId" class="form-label">ID ou Título do Filme:</label>
           <input type="text" class="form-control" id="filmeId" placeholder="Digite o ID ou Título">
         </div>
-
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
           <button type="button" class="btn btn-warning" onclick="buscarFilmeParaEditar()">Buscar</button>
           <button type="button" class="btn btn-primary" onclick="atualizarFilme()">Atualizar</button>
           <button type="button" class="btn btn-danger" onclick="deletarFilme()">Deletar</button>
@@ -93,5 +90,36 @@
   </div>
 
   <script src="/admin/admin.js"></script>
+  <script>
+    // Validação para garantir que pelo menos uma categoria seja selecionada
+    document.getElementById('form-filme').addEventListener('submit', function (e) {
+      const categorias = document.getElementById('categoria');
+      const selecionadas = Array.from(categorias.selectedOptions);
+      if (selecionadas.length === 0) {
+        e.preventDefault();
+        alert('Por favor, selecione pelo menos uma categoria para o filme.');
+        categorias.focus();
+      }
+    });
+
+    // Carregar categorias da API
+    window.addEventListener('DOMContentLoaded', () => {
+      fetch('http://localhost/cine_tech_ac/public/categorias')
+        .then(response => response.json())
+        .then(categorias => {
+          const select = document.getElementById('categoria');
+          categorias.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.id || cat.nome || cat; // ajuste conforme sua estrutura
+            option.textContent = cat.nome || cat;     // ajuste conforme sua estrutura
+            select.appendChild(option);
+          });
+        })
+        .catch(error => {
+          console.error('Erro ao carregar categorias:', error);
+          alert('Erro ao carregar categorias. Verifique a API.');
+        });
+    });
+  </script>
 </body>
 </html>
