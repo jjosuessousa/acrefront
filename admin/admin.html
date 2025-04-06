@@ -14,10 +14,13 @@
     <!-- Seção de Cadastro -->
     <div class="card mb-5 shadow-sm">
       <div class="card-header bg-success text-white">
-        <h4 class="mb-0">Cadastrar Novo Filme</h4>
+        <h4 class="mb-0">Cadastrar ou Editar Filme</h4>
       </div>
       <div class="card-body">
         <form id="form-filme" enctype="multipart/form-data">
+          <!-- Campo oculto para armazenar ID ao editar -->
+          <input type="hidden" id="idFilmeEditar">
+
           <div class="mb-3">
             <label class="form-label">Título:</label>
             <input type="text" class="form-control" id="titulo" required>
@@ -54,7 +57,7 @@
             <input type="number" class="form-control" id="duracao" required>
           </div>
 
-          <button type="submit" class="btn btn-success">Cadastrar</button>
+          <button type="submit" class="btn btn-success">Salvar</button>
         </form>
       </div>
     </div>

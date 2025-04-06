@@ -73,25 +73,22 @@ document.addEventListener('DOMContentLoaded', function () {
       .then(resposta => {
         let filme;
   
-        // Verifica se veio um array (busca por título)
         if (Array.isArray(resposta)) {
           if (resposta.length === 0) {
             mostrarMensagem('Nenhum filme encontrado.', 'warning');
             return;
           }
-          filme = resposta[0]; // Pega o primeiro da lista
+          filme = resposta[0];
         } else {
-          filme = resposta; // Veio como objeto único (busca por ID)
+          filme = resposta;
         }
   
-        // Preenche o formulário
         document.getElementById('titulo').value = filme.titulo || '';
         document.getElementById('sinopse').value = filme.sinopse || '';
         document.getElementById('trailer').value = filme.trailer || '';
         document.getElementById('duracao').value = filme.duracao || '';
         document.getElementById('filmeId').value = filme.id || '';
-  
-        // Corrigir a data de lançamento no formato yyyy-MM-dd
+
         const lancamento = filme.lancamento ? new Date(filme.lancamento) : null;
         if (lancamento instanceof Date && !isNaN(lancamento)) {
           const yyyyMMdd = lancamento.toISOString().split('T')[0];
@@ -99,13 +96,20 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
           document.getElementById('lancamento').value = '';
         }
-  
-        // Categorias
-        const categorias = Array.isArray(filme.categorias) ? filme.categorias : filme.categoria?.split(',') || [];
+
+        // NOVO: suporte a diferentes formatos de categorias
+        let categoriasSelecionadas = [];
+
+        if (Array.isArray(filme.categorias)) {
+          categoriasSelecionadas = filme.categorias.map(cat => typeof cat === 'string' ? cat : cat.nome);
+        } else if (typeof filme.categoria === 'string') {
+          categoriasSelecionadas = filme.categoria.split(',').map(cat => cat.trim());
+        }
+
         Array.from(categoriaSelect.options).forEach(option => {
-          option.selected = categorias.includes(option.value);
+          option.selected = categoriasSelecionadas.includes(option.value);
         });
-  
+
         mostrarMensagem('Filme carregado para edição.', 'info');
       })
       .catch(err => {
@@ -113,7 +117,39 @@ document.addEventListener('DOMContentLoaded', function () {
         mostrarMensagem('Erro ao buscar filme.', 'danger');
       });
   };
-  
+
+  window.atualizarFilme = function () {
+    const id = document.getElementById('filmeId').value;
+    if (!id) return alert('Informe o ID do filme para atualizar.');
+
+    const formData = new FormData();
+    formData.append('titulo', document.getElementById('titulo').value);
+    formData.append('sinopse', document.getElementById('sinopse').value);
+    formData.append('trailer', document.getElementById('trailer').value);
+    formData.append('lancamento', document.getElementById('lancamento').value);
+    formData.append('duracao', document.getElementById('duracao').value);
+
+    const categoriasSelecionadas = Array.from(categoriaSelect.selectedOptions).map(option => option.value);
+    formData.append('categorias', JSON.stringify(categoriasSelecionadas));
+
+    const capa = document.getElementById('capa').files[0];
+    if (capa) formData.append('capa', capa);
+
+    fetch(`http://localhost/cine_tech_ac/public/atualizar-filme/${id}`, {
+      method: 'POST',
+      body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+      mostrarMensagem('Filme atualizado com sucesso!', 'success');
+      form.reset();
+      listarFilmes();
+    })
+    .catch(err => {
+      console.error(err);
+      mostrarMensagem('Erro ao atualizar filme.', 'danger');
+    });
+  };
 
   window.deletarFilme = function () {
     const id = document.getElementById('filmeId').value;
