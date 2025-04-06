@@ -72,16 +72,26 @@ function renderFilmes(filmes) {
     card.className = "col-md-4";
 
     card.innerHTML = `
-      <div class="card h-100">
+      <div class="card h-100 shadow-sm">
         <img src="http://localhost/cine_tech_ac/uploads/${filme.capa}" class="card-img-top" alt="${filme.titulo}" />
         <div class="card-body">
           <h5 class="card-title">${filme.titulo}</h5>
           <p class="card-text">${filme.sinopse}</p>
           <p><strong>Categoria:</strong> ${filme.categoria}</p>
+          <p><strong>Duração:</strong> ${filme.duracao} min</p>
+          <p><strong>Lançamento:</strong> ${formatarData(filme.lancamento)}</p>
           <a href="${filme.trailer}" class="btn btn-outline-primary" target="_blank">Assistir Trailer</a>
         </div>
       </div>
     `;
     container.appendChild(card);
   });
+}
+
+function formatarData(dataString) {
+  const data = new Date(dataString);
+  const dia = String(data.getDate()).padStart(2, '0');
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const ano = data.getFullYear();
+  return `${dia}/${mes}/${ano}`;
 }

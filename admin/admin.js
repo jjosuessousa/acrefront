@@ -1,12 +1,14 @@
 document.addEventListener('DOMContentLoaded', function () {
+  const API_BASE = 'http://localhost/cine_tech_ac/public';
+
   const form = document.getElementById('form-filme');
   const lista = document.getElementById('lista-filmes');
   const mensagem = document.getElementById('mensagem');
   const categoriaSelect = document.getElementById('categoria');
+  const inputIdOuTitulo = document.getElementById('filmeId');
 
-  form.addEventListener('submit', function (e) {
-    e.preventDefault();
-
+  // Montar FormData
+  function montarFormData() {
     const formData = new FormData();
     formData.append('titulo', document.getElementById('titulo').value);
     formData.append('sinopse', document.getElementById('sinopse').value);
@@ -20,33 +22,75 @@ document.addEventListener('DOMContentLoaded', function () {
     const capa = document.getElementById('capa').files[0];
     if (capa) formData.append('capa', capa);
 
-    fetch('http://localhost/cine_tech_ac/public/cadastrar-Filme', {
-      method: 'POST',
-      body: formData
-    })
+    return formData;
+  }
+  function carregarCategorias() {
+  fetch('http://localhost/cine_tech_ac/public/categorias')
     .then(response => response.json())
-    .then(data => {
-      mostrarMensagem('Filme cadastrado com sucesso!', 'success');
-      form.reset();
-      listarFilmes();
-    })
-    .catch(error => {
-      console.error(error);
-      mostrarMensagem('Erro ao cadastrar filme', 'danger');
-    });
-  });
+    .then(categorias => {
+      const container = document.getElementById('categorias-checkbox');
+      container.innerHTML = ''; // Limpa antes de adicionar
 
+      categorias.forEach(cat => {
+        const checkbox = document.createElement('div');
+        checkbox.className = 'form-check';
+
+        checkbox.innerHTML = `
+          <input class="form-check-input" type="checkbox" name="categorias[]" value="${cat.id}" id="cat-${cat.id}">
+          <label class="form-check-label" for="cat-${cat.id}">${cat.nome}</label>
+        `;
+
+        container.appendChild(checkbox);
+      });
+    })
+    .catch(error => console.error('Erro ao carregar categorias:', error));
+}
+
+// Chama ao carregar a página
+window.addEventListener('DOMContentLoaded', carregarCategorias);
+
+
+  // Mostrar mensagens
+  function mostrarMensagem(texto, tipo) {
+    mensagem.innerHTML = `<div class="alert alert-${tipo} fade show">${texto}</div>`;
+    setTimeout(() => { mensagem.innerHTML = ''; }, 4000);
+  }
+
+  // Carregar categorias
+  function carregarCategorias() {
+    fetch(`${API_BASE}/categorias`)
+      .then(res => res.json())
+      .then(data => {
+        categoriaSelect.innerHTML = '';
+        data.forEach(categoria => {
+          const option = document.createElement('option');
+          option.value = categoria.id; // Corrigido: envia o ID
+          option.textContent = categoria.nome;
+          categoriaSelect.appendChild(option);
+        });
+      });
+  }
+  
+
+  // Listar filmes
   window.listarFilmes = function () {
-    fetch('http://localhost/cine_tech_ac/public/listar-filme')
+    lista.innerHTML = '<li class="list-group-item">Carregando filmes...</li>';
+
+    fetch(`${API_BASE}/listar-filme`)
       .then(res => res.json())
       .then(data => {
         lista.innerHTML = '';
+        if (data.length === 0) {
+          lista.innerHTML = '<li class="list-group-item">Nenhum filme cadastrado.</li>';
+          return;
+        }
+
         data.forEach(filme => {
           const li = document.createElement('li');
           li.className = 'list-group-item';
           li.innerHTML = `
             <div class="d-flex align-items-start gap-3">
-              <img src="http://localhost/cine_tech_ac/uploads/${filme.capa}" alt="Capa" width="100">
+              <img src="${API_BASE.replace('/public', '')}/uploads/${filme.capa}" alt="Capa" width="100">
               <div>
                 <h5>${filme.titulo}</h5>
                 <p><strong>Categorias:</strong> ${filme.categoria}</p>
@@ -60,19 +104,20 @@ document.addEventListener('DOMContentLoaded', function () {
       });
   };
 
+  // Buscar filme para edição
   window.buscarFilmeParaEditar = function () {
-    const entrada = document.getElementById('filmeId').value.trim();
+    const entrada = inputIdOuTitulo.value.trim();
     if (!entrada) return alert('Informe o ID ou o Título do filme');
-  
+
     const url = isNaN(entrada)
-      ? `http://localhost/cine_tech_ac/public/filmes/buscar/${entrada}`
-      : `http://localhost/cine_tech_ac/public/filme/${entrada}`;
-  
+      ? `${API_BASE}/filmes/buscar/${entrada}`
+      : `${API_BASE}/filme/${entrada}`;
+
     fetch(url)
       .then(res => res.json())
       .then(resposta => {
         let filme;
-  
+
         if (Array.isArray(resposta)) {
           if (resposta.length === 0) {
             mostrarMensagem('Nenhum filme encontrado.', 'warning');
@@ -82,12 +127,12 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
           filme = resposta;
         }
-  
+
         document.getElementById('titulo').value = filme.titulo || '';
         document.getElementById('sinopse').value = filme.sinopse || '';
         document.getElementById('trailer').value = filme.trailer || '';
         document.getElementById('duracao').value = filme.duracao || '';
-        document.getElementById('filmeId').value = filme.id || '';
+        inputIdOuTitulo.value = filme.id || '';
 
         const lancamento = filme.lancamento ? new Date(filme.lancamento) : null;
         if (lancamento instanceof Date && !isNaN(lancamento)) {
@@ -97,7 +142,6 @@ document.addEventListener('DOMContentLoaded', function () {
           document.getElementById('lancamento').value = '';
         }
 
-        // NOVO: suporte a diferentes formatos de categorias
         let categoriasSelecionadas = [];
 
         if (Array.isArray(filme.categorias)) {
@@ -118,44 +162,37 @@ document.addEventListener('DOMContentLoaded', function () {
       });
   };
 
+  // Atualizar filme
   window.atualizarFilme = function () {
-    const id = document.getElementById('filmeId').value;
+    const id = inputIdOuTitulo.value;
     if (!id) return alert('Informe o ID do filme para atualizar.');
 
-    const formData = new FormData();
-    formData.append('titulo', document.getElementById('titulo').value);
-    formData.append('sinopse', document.getElementById('sinopse').value);
-    formData.append('trailer', document.getElementById('trailer').value);
-    formData.append('lancamento', document.getElementById('lancamento').value);
-    formData.append('duracao', document.getElementById('duracao').value);
+    const formData = montarFormData();
 
-    const categoriasSelecionadas = Array.from(categoriaSelect.selectedOptions).map(option => option.value);
-    formData.append('categorias', JSON.stringify(categoriasSelecionadas));
-
-    const capa = document.getElementById('capa').files[0];
-    if (capa) formData.append('capa', capa);
-
-    fetch(`http://localhost/cine_tech_ac/public/atualizar-filme/${id}`, {
+    fetch(`${API_BASE}/atualizar-filme/${id}`, {
       method: 'POST',
       body: formData
     })
-    .then(res => res.json())
-    .then(data => {
-      mostrarMensagem('Filme atualizado com sucesso!', 'success');
-      form.reset();
-      listarFilmes();
-    })
-    .catch(err => {
-      console.error(err);
-      mostrarMensagem('Erro ao atualizar filme.', 'danger');
-    });
+      .then(res => res.json())
+      .then(data => {
+        mostrarMensagem('Filme atualizado com sucesso!', 'success');
+        form.reset();
+        listarFilmes();
+      })
+      .catch(err => {
+        console.error(err);
+        mostrarMensagem('Erro ao atualizar filme.', 'danger');
+      });
   };
 
+  // Deletar filme
   window.deletarFilme = function () {
-    const id = document.getElementById('filmeId').value;
+    const id = inputIdOuTitulo.value;
     if (!id) return alert('Informe o ID para deletar.');
 
-    fetch(`http://localhost/cine_tech_ac/public/deletar-filme/${id}`, {
+    if (!confirm('Tem certeza que deseja deletar este filme?')) return;
+
+    fetch(`${API_BASE}/deletar-filme/${id}`, {
       method: 'DELETE'
     })
       .then(res => res.json())
@@ -163,28 +200,47 @@ document.addEventListener('DOMContentLoaded', function () {
         mostrarMensagem('Filme deletado com sucesso!', 'success');
         form.reset();
         listarFilmes();
+      })
+      .catch(err => {
+        console.error(err);
+        mostrarMensagem('Erro ao deletar filme.', 'danger');
       });
   };
 
-  function mostrarMensagem(texto, tipo) {
-    mensagem.innerHTML = `<div class="alert alert-${tipo}">${texto}</div>`;
-    setTimeout(() => { mensagem.innerHTML = ''; }, 4000);
-  }
+  // Cadastrar filme
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
 
-  function carregarCategorias() {
-    fetch('http://localhost/cine_tech_ac/public/categorias')
-      .then(res => res.json())
+    const titulo = document.getElementById('titulo').value.trim();
+    if (!titulo) return mostrarMensagem('Título é obrigatório!', 'warning');
+
+    const formData = montarFormData();
+
+    fetch(`${API_BASE}/cadastrar-Filme`, {
+      method: 'POST',
+      body: formData
+    })
+      .then(response => response.json())
       .then(data => {
-        categoriaSelect.innerHTML = '';
-        data.forEach(cat => {
-          const option = document.createElement('option');
-          option.value = cat.nome;
-          option.textContent = cat.nome;
-          categoriaSelect.appendChild(option);
-        });
+        mostrarMensagem('Filme cadastrado com sucesso!', 'success');
+        form.reset();
+        listarFilmes();
+      })
+      .catch(error => {
+        console.error(error);
+        mostrarMensagem('Erro ao cadastrar filme', 'danger');
       });
-  }
+  });
 
+  // ENTER no campo de ID ou título
+  inputIdOuTitulo.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      buscarFilmeParaEditar();
+    }
+  });
+
+  // Inicializar
   carregarCategorias();
   listarFilmes();
 });
