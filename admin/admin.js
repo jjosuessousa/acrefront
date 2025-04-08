@@ -4,8 +4,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const form = document.getElementById('form-filme');
   const lista = document.getElementById('lista-filmes');
   const mensagem = document.getElementById('mensagem');
-  const categoriaCheckboxContainer = document.getElementById('categorias-checkbox');
-  const inputIdOuTitulo = document.getElementById('filmeId');
+  const categoriaSelect = document.getElementById('categoria'); // Seleção única para categoria
+  const inputIdOuTitulo = document.getElementById('filmeId'); // Campo para buscar filme
 
   // Gera o objeto FormData com os dados do formulário
   function montarFormData() {
@@ -16,11 +16,9 @@ document.addEventListener('DOMContentLoaded', function () {
     formData.append('lancamento', document.getElementById('lancamento').value);
     formData.append('duracao', document.getElementById('duracao').value);
 
-    // Coleta categorias marcadas
-    const categoriasSelecionadas = Array.from(document.querySelectorAll('input[name="categorias[]"]:checked'))
-      .map(cb => cb.value);
-
-    formData.append('categorias', JSON.stringify(categoriasSelecionadas));
+    // Coleta categoria selecionada
+    const categoriaSelecionada = categoriaSelect.value;
+    formData.append('categoria', categoriaSelecionada);
 
     const capa = document.getElementById('capa').files[0];
     if (capa) formData.append('capa', capa);
@@ -34,19 +32,16 @@ document.addEventListener('DOMContentLoaded', function () {
     setTimeout(() => { mensagem.innerHTML = ''; }, 4000);
   }
 
-  // Cria os checkboxes fixos com as 5 categorias
+  // Carregar categorias fixas
   function carregarCategoriasFixas() {
-    const categorias = ["Ação", "Terror", "Drama", "Ficção", "Romance"];
-    categoriaCheckboxContainer.innerHTML = '';
+    const categorias = ["Ação", "Terror", "Drama", "Romance"];
+    categoriaSelect.innerHTML = '';
 
     categorias.forEach(cat => {
-      const checkbox = document.createElement('div');
-      checkbox.className = 'form-check';
-      checkbox.innerHTML = `
-        <input class="form-check-input" type="checkbox" name="categorias[]" value="${cat}" id="cat-${cat}">
-        <label class="form-check-label" for="cat-${cat}">${cat}</label>
-      `;
-      categoriaCheckboxContainer.appendChild(checkbox);
+      const option = document.createElement('option');
+      option.value = cat;
+      option.textContent = cat;
+      categoriaSelect.appendChild(option);
     });
   }
 
@@ -71,7 +66,7 @@ document.addEventListener('DOMContentLoaded', function () {
               <img src="${API_BASE.replace('/public', '')}/uploads/${filme.capa}" alt="Capa" width="100">
               <div>
                 <h5>${filme.titulo}</h5>
-                <p><strong>Categorias:</strong> ${filme.categoria}</p>
+                <p><strong>Categoria:</strong> ${filme.categoria}</p>
                 <p>${filme.sinopse}</p>
                 <a href="${filme.trailer}" target="_blank">Ver trailer</a>
               </div>
@@ -79,13 +74,17 @@ document.addEventListener('DOMContentLoaded', function () {
           `;
           lista.appendChild(li);
         });
+      })
+      .catch(err => {
+        console.error(err);
+        mostrarMensagem('Erro ao carregar filmes.', 'danger');
       });
   };
 
-  // Busca um filme pelo ID ou título
+  // Busca um filme pelo ID ou título para edição
   window.buscarFilmeParaEditar = function () {
     const entrada = inputIdOuTitulo.value.trim();
-    if (!entrada) return alert('Informe o ID ou o Título do filme');
+    if (!entrada) return mostrarMensagem('Informe o ID ou o Título do filme.', 'warning');
 
     const url = isNaN(entrada)
       ? `${API_BASE}/filmes/buscar/${entrada}`
@@ -93,41 +92,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
     fetch(url)
       .then(res => res.json())
-      .then(resposta => {
-        let filme;
-        if (Array.isArray(resposta)) {
-          if (resposta.length === 0) {
-            mostrarMensagem('Nenhum filme encontrado.', 'warning');
-            return;
-          }
-          filme = resposta[0];
-        } else {
-          filme = resposta;
+      .then(data => {
+        const filme = Array.isArray(data) ? data[0] : data;
+
+        if (!filme) {
+          mostrarMensagem('Filme não encontrado.', 'warning');
+          return;
         }
 
+        // Preencher o formulário com os dados do filme
         document.getElementById('titulo').value = filme.titulo || '';
         document.getElementById('sinopse').value = filme.sinopse || '';
         document.getElementById('trailer').value = filme.trailer || '';
         document.getElementById('duracao').value = filme.duracao || '';
+        categoriaSelect.value = filme.categoria || '';
         inputIdOuTitulo.value = filme.id || '';
-
+        
         const lancamento = filme.lancamento ? new Date(filme.lancamento) : null;
         if (lancamento instanceof Date && !isNaN(lancamento)) {
           document.getElementById('lancamento').value = lancamento.toISOString().split('T')[0];
         }
-
-        // Converte categorias
-        let categoriasSelecionadas = [];
-        if (Array.isArray(filme.categorias)) {
-          categoriasSelecionadas = filme.categorias.map(cat => cat.nome || cat);
-        } else if (typeof filme.categoria === 'string') {
-          categoriasSelecionadas = filme.categoria.split(',').map(cat => cat.trim());
-        }
-
-        // Marca os checkboxes
-        document.querySelectorAll('input[name="categorias[]"]').forEach(cb => {
-          cb.checked = categoriasSelecionadas.includes(cb.value);
-        });
 
         mostrarMensagem('Filme carregado para edição.', 'info');
       })
@@ -140,7 +124,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // Atualiza os dados do filme
   window.atualizarFilme = function () {
     const id = inputIdOuTitulo.value;
-    if (!id) return alert('Informe o ID do filme para atualizar.');
+    if (!id) return mostrarMensagem('Informe o ID do filme para atualizar.', 'warning');
 
     const formData = montarFormData();
 
@@ -163,9 +147,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // Exclui um filme
   window.deletarFilme = function () {
     const id = inputIdOuTitulo.value;
-    if (!id) return alert('Informe o ID para deletar.');
+    if (!id) return mostrarMensagem('Informe o ID do filme para deletar.', 'warning');
 
-    if (!confirm('Tem certeza que deseja deletar este filme?')) return;
+    if (!confirm('Tem certeza que deseja excluir este filme?')) return;
 
     fetch(`${API_BASE}/deletar-filme/${id}`, {
       method: 'DELETE'
@@ -207,14 +191,7 @@ document.addEventListener('DOMContentLoaded', function () {
       });
   });
 
-  // Permite buscar apertando Enter no input do ID/título
-  inputIdOuTitulo.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      buscarFilmeParaEditar();
-    }
-  });
-
+  // Inicializa a aplicação
   carregarCategoriasFixas();
   listarFilmes();
 });
